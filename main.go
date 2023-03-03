@@ -6,10 +6,13 @@ import (
 	"time"
 )
 
-var wg sync.WaitGroup
+const (
+	workerCount = 10
+)
 
 func inputWriter(inCh *chan string) {
-	for i := 0; i < 1000; i++ {
+	defer close(*inCh)
+	for i := 1; i <= 10000; i++ {
 		time.Sleep(10 * time.Millisecond)
 		*inCh <- fmt.Sprintf("String %d", i)
 	}
@@ -19,14 +22,25 @@ func send(msg string) {
 	fmt.Println(msg)
 }
 
-func main() {
-	start := time.Now()
+func Worker(inCh *chan string, wg *sync.WaitGroup) {
+	for msg := range *inCh {
+		send(msg)
+	}
+	wg.Done()
+}
 
+func main() {
+	var wg sync.WaitGroup
+	start := time.Now()
 	ch := make(chan string)
 	go inputWriter(&ch)
 
-	close(ch)
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go Worker(&ch, &wg)
+	}
+
 	wg.Wait()
-	end := time.Since(start)
-	fmt.Printf("Time elapsed: %s", end)
+	T := time.Since(start)
+	fmt.Printf("Time elapsed: %s", T)
 }
